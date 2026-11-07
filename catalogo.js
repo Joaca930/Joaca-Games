@@ -28,7 +28,7 @@ async function carregar() {
       document.querySelector('#jogos').hidden = !!jogo;
       document.querySelector('#player').hidden = !jogo;
       const quadro = document.querySelector('#quadro'); quadro.replaceChildren();
-      if (jogo) { document.querySelector('#jogando').textContent = jogo.nome; quadro.append(criarJogador(jogo)); window.scrollTo(0,0); }
+      if (jogo) { document.querySelector('#original').href = enderecoJogo(jogo.link).href; document.querySelector('#jogando').textContent = jogo.nome; quadro.append(criarJogador(jogo)); window.scrollTo(0,0); }
     }
     addEventListener('hashchange', navegar); navegar();
     const tela = document.querySelector('#tela'); tela.hidden = !document.fullscreenEnabled;

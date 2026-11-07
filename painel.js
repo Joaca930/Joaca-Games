@@ -36,7 +36,7 @@ el('login').onsubmit = async evento => {
 };
 let candidato = null;
 function limparPrevia() {
-  candidato = null; el('previa').hidden = true; el('amostra').replaceChildren();
+  candidato = null; el('confirmado').checked = false; el('manual').hidden = true; el('previa').hidden = true; el('amostra').replaceChildren();
 }
 el('link').oninput = limparPrevia;
 el('cadastro').onsubmit = async evento => {
@@ -46,22 +46,41 @@ el('cadastro').onsubmit = async evento => {
   const botao = el('cadastro').querySelector('button');
   campo.disabled = botao.disabled = el('sair').disabled = true;
   try {
-    const url = enderecoPages(campo.value.trim());
+    const url = enderecoJogo(campo.value.trim());
     el('status').textContent = 'Verificando o endereço…';
-    const res = await fetch(url, {credentials:'omit', cache:'no-store', signal:AbortSignal.timeout(20000)});
-    if (!res.ok || !res.headers.get('Content-Type')?.includes('text/html')) throw Error('O endereço precisa abrir uma página HTML publicada.');
-    const destino = enderecoPages(res.url);
-    if (destino.origin === location.origin && [new URL('./',location.href).pathname,location.pathname,new URL('index.html',location.href).pathname].includes(destino.pathname)) throw Error('Esse endereço é do próprio catálogo. Cole o link do jogo.');
-    const doc = new DOMParser().parseFromString(await res.text(),'text/html');
-    if (!doc.querySelector('script,iframe,canvas,embed,object,video') && !doc.querySelector('[onclick],input,button')) throw Error('A página abriu, mas não encontrei conteúdo interativo. Confira o link do jogo.');
-    candidato = {nome:(doc.title.trim() || destino.pathname.split('/').filter(Boolean).pop() || destino.hostname).slice(0,90), link:url.href};
-    el('titulo').textContent = candidato.nome; el('amostra').replaceChildren(criarJogador(candidato));
-    el('previa').hidden = false; el('status').textContent = 'Página HTML encontrada. Teste o jogo na prévia.';
+    function verificarDestino(destino) {
+      if (destino.origin === location.origin && [new URL('./',location.href).pathname,location.pathname,new URL('index.html',location.href).pathname].includes(destino.pathname)) throw Error('Cole o endereço do jogo, não o do catálogo.');
+    }
+    verificarDestino(url);
+    let res;
+    try {
+      res = await fetch(url, {credentials:'omit', cache:'no-store', referrerPolicy:'no-referrer', signal:AbortSignal.timeout(10000)});
+    } catch (erro) {
+      if (url.origin === location.origin) throw erro;
+    }
+    let titulo = '';
+    if (res) {
+      if (!res.ok || !res.headers.get('Content-Type')?.includes('text/html')) throw Error('Esse endereço não abriu uma página HTML publicada.');
+      verificarDestino(enderecoJogo(res.url));
+      const doc = new DOMParser().parseFromString(await res.text(),'text/html');
+      if (!doc.querySelector('script,iframe,canvas,embed,object,video,[onclick],input,button')) throw Error('Confira o link: a página não apresentou conteúdo interativo.');
+      titulo = doc.title.trim();
+    }
+    candidato = {nome:(titulo || url.pathname.split('/').filter(Boolean).pop() || url.hostname).slice(0,90), link:url.href};
+    el('titulo').textContent = candidato.nome;
+    el('original').href = url.href;
+    el('amostra').replaceChildren(criarJogador(candidato));
+    el('manual').hidden = !!res;
+    el('previa').hidden = false;
+    el('status').textContent = res ? 'Página encontrada. Teste o jogo na prévia.' : 'Verificação automática indisponível. Abra o link e confirme que o jogo funciona antes de publicar.';
   } catch (erro) { el('status').textContent = erro instanceof TypeError ? 'Não foi possível ler o endereço. Confira o link público e o acesso entre sites.' : erro.message; }
   finally { campo.disabled = botao.disabled = el('sair').disabled = false; }
 };
 el('publicar').onclick = async () => {
   if (!sessao || !candidato) return;
+  if (!el('manual').hidden && !el('confirmado').checked) {
+    el('status').textContent = 'Teste o link e marque a confirmação antes de publicar.'; return;
+  }
   const {nome, link} = candidato;
   const botao = el('publicar');
   botao.disabled = el('link').disabled = el('cadastro').querySelector('button').disabled = el('sair').disabled = true;
